@@ -1,0 +1,591 @@
+-- Soul Farm SUPER CHAIN v13 – ANTI-KICK SUPER + MOB SWITCH SUPER CEPAT & STABIL (NO CRASH)
+-- Update: ESP super jauh, Tween ke chest loop + auto press E
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local player = Players.LocalPlayer
+local farmToggleKey = Enum.KeyCode.F
+local noclipToggleKey = Enum.KeyCode.N
+
+local tweenSpeed = 200
+local aboveDistance = 4
+local verticalOffset = Vector3.new(0, aboveDistance, 0)
+local attackRange = 15
+local attackDelay = 0.05
+local refreshInterval = 0.5
+
+local farming = false
+local noclipEnabled = false
+local originalY = nil
+local lastAfkAction = tick()
+
+local RemoteAttack = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("Attack")
+
+-- Fungsi core (sama seperti sebelumnya)
+local function findEnemyFolder()
+    return workspace:FindFirstChild("Enemies") 
+        or workspace:FindFirstChild("Mobs") 
+        or workspace:FindFirstChild("Enemy") 
+        or workspace:FindFirstChild("NPC")
+        or workspace:FindFirstChild("Monsters")
+        or workspace:FindFirstChild("Bosses")
+        or workspace:FindFirstChild("EnemyFolder")
+end
+
+local enemyFolder = findEnemyFolder()
+local validEnemies = {}
+local selectedTargets = {}
+
+local function scanEnemies()
+    validEnemies = {}
+    if not enemyFolder or not enemyFolder.Parent then
+        enemyFolder = findEnemyFolder()
+        if not enemyFolder then return false end
+    end
+    for _, v in pairs(enemyFolder:GetChildren()) do
+        if v:IsA("Model") 
+            and v:FindFirstChildWhichIsA("Humanoid") 
+            and v.Humanoid.Health > 0 
+            and v:FindFirstChild("HumanoidRootPart") then
+            table.insert(validEnemies, v)
+        end
+    end
+    return true
+end
+
+local function getHRP()
+    local char = player.Character
+    if char then return char:FindFirstChild("HumanoidRootPart") end
+    return nil
+end
+
+local function tweenToPosition(targetPos)
+    local hrp = getHRP()
+    if not hrp then return end
+    
+    local distance = (hrp.Position - targetPos).Magnitude
+    if distance < 6 then return end
+    
+    local time = distance / tweenSpeed
+    local tweenInfo = TweenInfo.new(math.max(time, 0.1), Enum.EasingStyle.Linear)
+    
+    pcall(function()
+        local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPos)})
+        tween:Play()
+        tween.Completed:Wait()
+    end)
+end
+
+local function setNoclip(state)
+    local char = player.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = not state end
+        end
+    end
+end
+
+local function toggleNoclip()
+    noclipEnabled = not noclipEnabled
+    setNoclip(noclipEnabled)
+end
+
+spawn(function()
+    while true do
+        RunService.Heartbeat:Wait()
+        if farming or noclipEnabled then
+            local hrp = getHRP()
+            if hrp then
+                if not originalY then originalY = hrp.Position.Y end
+                if hrp.Position.Y < originalY - 50 then
+                    hrp.CFrame = CFrame.new(hrp.Position.X, originalY + 10, hrp.Position.Z)
+                    hrp.AssemblyLinearVelocity = Vector3.new()
+                    hrp.AssemblyAngularVelocity = Vector3.new()
+                end
+            end
+        else
+            originalY = nil
+        end
+    end
+end)
+
+local function getNearestFromSelected()
+    local hrp = getHRP()
+    if not hrp then return nil end
+    local nearest, minDist = nil, math.huge
+    for _, enemy in ipairs(validEnemies) do
+        if selectedTargets[enemy.Name] then
+            local ehrp = enemy:FindFirstChild("HumanoidRootPart")
+            local hum = enemy:FindFirstChildWhichIsA("Humanoid")
+            if ehrp and hum and hum.Health > 0 and enemy.Parent then
+                local dist = (hrp.Position - ehrp.Position).Magnitude
+                if dist < minDist then minDist = dist nearest = enemy end
+            end
+        end
+    end
+    return nearest
+end
+
+local function countSelected()
+    local count = 0
+    for _ in pairs(selectedTargets) do count = count + 1 end
+    return count
+end
+
+local function doAntiKickAction()
+    if not farming then return end
+    local hrp = getHRP()
+    if not hrp then return end
+    
+    hrp.AssemblyLinearVelocity = Vector3.new(math.random(-1,1)*10, 0, math.random(-1,1)*10)
+    
+    pcall(function()
+        VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        task.wait(0.05)
+        VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    end)
+    
+    pcall(function()
+        VirtualUser:MoveMouseTo(Vector2.new(math.random(200,1000), math.random(200,800)))
+        task.wait(0.1)
+        VirtualUser:MoveMouseTo(Vector2.new(math.random(200,1000), math.random(200,800)))
+    end)
+    
+    local keys = {Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, Enum.KeyCode.Space, Enum.KeyCode.LeftShift, Enum.KeyCode.LeftControl}
+    local randomKey = keys[math.random(1,#keys)]
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, randomKey, false, game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, randomKey, false, game)
+    end)
+    
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+    end)
+end
+
+local function startFarm()
+    if countSelected() == 0 then farming = false return end
+    if not RemoteAttack then farming = false return end
+    
+    farming = true
+    
+    spawn(function()
+        local lastScan = tick()
+        while farming do
+            if tick() - lastScan > 0.5 then
+                scanEnemies()
+                lastScan = tick()
+            end
+            
+            if tick() - lastAfkAction > math.random(120,180) then
+                doAntiKickAction()
+                lastAfkAction = tick()
+            end
+            
+            local target = getNearestFromSelected()
+            if not target or not target.Parent or target.Humanoid.Health <= 0 then task.wait() continue end
+            
+            local ehrp = target.HumanoidRootPart
+            if not ehrp then continue end
+            
+            local hrp = getHRP()
+            if not hrp then continue end
+            
+            local basePos = ehrp.Position + verticalOffset
+            local sideOffset = Vector3.new(math.random(-2,2)*1.5, 0, math.random(-2,2)*1.5)
+            local safePos = basePos + sideOffset
+            
+            if (hrp.Position - safePos).Magnitude > 6 then
+                tweenToPosition(safePos)
+            end
+            
+            local lastAttack = 0
+            while farming and target.Parent and target.Humanoid.Health > 0 do
+                hrp = getHRP()
+                ehrp = target.HumanoidRootPart
+                if not hrp or not ehrp then break end
+                
+                local currentSafePos = ehrp.Position + verticalOffset + sideOffset
+                hrp.CFrame = CFrame.lookAt(currentSafePos, ehrp.Position)
+                
+                if (hrp.Position - ehrp.Position).Magnitude <= attackRange then
+                    local now = tick()
+                    if now - lastAttack >= attackDelay then
+                        pcall(function()
+                            RemoteAttack:FireServer("Light", {RootPart = ehrp})
+                        end)
+                        lastAttack = now
+                    end
+                end
+                
+                RunService.Heartbeat:Wait()
+            end
+        end
+        farming = false
+    end)
+end
+
+-- ====================== GUI ======================
+
+task.wait(1)
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SoulFarmChainV13"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 340, 0, 560)
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -280)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 45)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+Title.Text = "Soul Farm v13 – Super Chain"
+Title.TextColor3 = Color3.fromRGB(255, 220, 100)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 24
+Title.Parent = MainFrame
+
+local TabBar = Instance.new("Frame")
+TabBar.Size = UDim2.new(1, 0, 0, 40)
+TabBar.Position = UDim2.new(0, 0, 0, 45)
+TabBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+TabBar.Parent = MainFrame
+
+local TabFarm = Instance.new("TextButton")
+TabFarm.Size = UDim2.new(0.5, 0, 1, 0)
+TabFarm.BackgroundColor3 = Color3.fromRGB(60, 140, 80)
+TabFarm.Text = "Farm Mobs/Boss"
+TabFarm.TextColor3 = Color3.new(1,1,1)
+TabFarm.Font = Enum.Font.SourceSansBold
+TabFarm.TextSize = 18
+TabFarm.Parent = TabBar
+
+local TabESP = Instance.new("TextButton")
+TabESP.Size = UDim2.new(0.5, 0, 1, 0)
+TabESP.Position = UDim2.new(0.5, 0, 0, 0)
+TabESP.BackgroundColor3 = Color3.fromRGB(40, 100, 140)
+TabESP.Text = "Chest ESP + Tween"
+TabESP.TextColor3 = Color3.new(1,1,1)
+TabESP.Font = Enum.Font.SourceSansBold
+TabESP.TextSize = 18
+TabESP.Parent = TabBar
+
+local ContentFarm = Instance.new("Frame")
+ContentFarm.Size = UDim2.new(1, 0, 1, -85)
+ContentFarm.Position = UDim2.new(0, 0, 0, 85)
+ContentFarm.BackgroundTransparency = 1
+ContentFarm.Visible = true
+ContentFarm.Parent = MainFrame
+
+local ContentESP = Instance.new("Frame")
+ContentESP.Size = UDim2.new(1, 0, 1, -85)
+ContentESP.Position = UDim2.new(0, 0, 0, 85)
+ContentESP.BackgroundTransparency = 1
+ContentESP.Visible = false
+ContentESP.Parent = MainFrame
+
+local function switchTab(isFarm)
+    ContentFarm.Visible = isFarm
+    ContentESP.Visible = not isFarm
+    TabFarm.BackgroundColor3 = isFarm and Color3.fromRGB(80, 180, 100) or Color3.fromRGB(60, 140, 80)
+    TabESP.BackgroundColor3 = not isFarm and Color3.fromRGB(60, 140, 180) or Color3.fromRGB(40, 100, 140)
+end
+
+TabFarm.MouseButton1Click:Connect(function() switchTab(true) end)
+TabESP.MouseButton1Click:Connect(function() switchTab(false) end)
+
+-- Tab Farm (sama)
+local RefreshButton = Instance.new("TextButton")
+RefreshButton.Size = UDim2.new(0.45, 0, 0, 40)
+RefreshButton.Position = UDim2.new(0.05, 0, 0.02, 0)
+RefreshButton.BackgroundColor3 = Color3.fromRGB(50, 140, 60)
+RefreshButton.Text = "Refresh"
+RefreshButton.TextColor3 = Color3.new(1, 1, 1)
+RefreshButton.Font = Enum.Font.SourceSansBold
+RefreshButton.TextSize = 16
+RefreshButton.Parent = ContentFarm
+
+local CountLabel = Instance.new("TextLabel")
+CountLabel.Size = UDim2.new(0.45, 0, 0, 40)
+CountLabel.Position = UDim2.new(0.5, 0, 0.02, 0)
+CountLabel.BackgroundTransparency = 1
+CountLabel.Text = "Total: 0"
+CountLabel.TextColor3 = Color3.fromRGB(180, 255, 180)
+CountLabel.Font = Enum.Font.SourceSansBold
+CountLabel.TextSize = 16
+CountLabel.Parent = ContentFarm
+
+local SearchBox = Instance.new("TextBox")
+SearchBox.Size = UDim2.new(0.9, 0, 0, 40)
+SearchBox.Position = UDim2.new(0.05, 0, 0.1, 0)
+SearchBox.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+SearchBox.PlaceholderText = "Cari nama musuh..."
+SearchBox.TextColor3 = Color3.new(1, 1, 1)
+SearchBox.Font = Enum.Font.SourceSans
+SearchBox.TextSize = 16
+SearchBox.Parent = ContentFarm
+
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(0.9, 0, 0, 280)
+ScrollFrame.Position = UDim2.new(0.05, 0, 0.18, 0)
+ScrollFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 6
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollFrame.Parent = ContentFarm
+
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Padding = UDim.new(0, 4)
+ListLayout.Parent = ScrollFrame
+
+local TargetLabel = Instance.new("TextLabel")
+TargetLabel.Size = UDim2.new(0.9, 0, 0, 40)
+TargetLabel.Position = UDim2.new(0.05, 0, 0.68, 0)
+TargetLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+TargetLabel.Text = "Targets: 0"
+TargetLabel.TextColor3 = Color3.new(1, 1, 1)
+TargetLabel.Font = Enum.Font.SourceSansBold
+TargetLabel.TextSize = 18
+TargetLabel.Parent = ContentFarm
+
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0.45, 0, 0, 55)
+ToggleButton.Position = UDim2.new(0.05, 0, 0.78, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+ToggleButton.Text = "FARM OFF (F)"
+ToggleButton.TextColor3 = Color3.new(1, 1, 1)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.TextSize = 20
+ToggleButton.Parent = ContentFarm
+
+local NoclipButton = Instance.new("TextButton")
+NoclipButton.Size = UDim2.new(0.45, 0, 0, 55)
+NoclipButton.Position = UDim2.new(0.5, 0, 0.78, 0)
+NoclipButton.BackgroundColor3 = Color3.fromRGB(110, 110, 170)
+NoclipButton.Text = "NOCLIP OFF (N)"
+NoclipButton.TextColor3 = Color3.new(1, 1, 1)
+NoclipButton.Font = Enum.Font.SourceSansBold
+NoclipButton.TextSize = 20
+NoclipButton.Parent = ContentFarm
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(0.9, 0, 0, 40)
+Status.Position = UDim2.new(0.05, 0, 0.92, 0)
+Status.BackgroundTransparency = 1
+Status.Text = "Status: Ready – Anti-Kick Super"
+Status.TextColor3 = Color3.fromRGB(200, 255, 200)
+Status.Font = Enum.Font.SourceSans
+Status.TextSize = 18
+Status.Parent = ContentFarm
+
+local function matchesSearch(name)
+    return SearchBox.Text == "" or string.find(string.lower(name), string.lower(SearchBox.Text), 1, true)
+end
+
+local function updateList()
+    for _, child in pairs(ScrollFrame:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    
+    local unique = {}
+    for _, e in ipairs(validEnemies) do unique[e.Name] = (unique[e.Name] or 0) + 1 end
+    
+    local order = 0
+    for name, cnt in pairs(unique) do
+        if matchesSearch(name) then
+            order = order + 1
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, 0, 0, 40)
+            local sel = selectedTargets[name] or false
+            btn.BackgroundColor3 = sel and Color3.fromRGB(100, 160, 100) or Color3.fromRGB(55, 55, 65)
+            btn.Text = (sel and "☑ " or "☐ ") .. name .. " (" .. cnt .. ")"
+            btn.TextColor3 = Color3.new(1,1,1)
+            btn.Font = Enum.Font.SourceSans
+            btn.TextSize = 16
+            btn.LayoutOrder = order
+            btn.Parent = ScrollFrame
+            
+            btn.MouseButton1Click:Connect(function()
+                selectedTargets[name] = not selectedTargets[name]
+                TargetLabel.Text = "Targets: " .. countSelected()
+                updateList()
+            end)
+        end
+    end
+    
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
+    CountLabel.Text = "Total: " .. #validEnemies
+end
+
+RefreshButton.MouseButton1Click:Connect(function()
+    scanEnemies()
+    updateList()
+end)
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(updateList)
+
+ToggleButton.MouseButton1Click:Connect(function()
+    farming = not farming
+    if farming then
+        startFarm()
+        ToggleButton.Text = "FARM ON (F)"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(170, 70, 70)
+        Status.Text = "Farming aktif + Anti-Kick Super"
+    else
+        ToggleButton.Text = "FARM OFF (F)"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        Status.Text = "Idle"
+    end
+end)
+
+NoclipButton.MouseButton1Click:Connect(function()
+    toggleNoclip()
+    NoclipButton.Text = "NOCLIP " .. (noclipEnabled and "ON" or "OFF") .. " (N)"
+    NoclipButton.BackgroundColor3 = noclipEnabled and Color3.fromRGB(170, 100, 170) or Color3.fromRGB(110, 110, 170)
+end)
+
+-- ====================== TAB CHEST ESP + AUTO TWEEN + PRESS E ======================
+
+local espEnabled = false
+local autoTweenChest = false
+local espFolder = Instance.new("Folder")
+espFolder.Name = "ChestESP"
+espFolder.Parent = ScreenGui
+
+local function createChestESP(chest)
+    local root = chest:FindFirstChildWhichIsA("BasePart") or chest.PrimaryPart
+    if not root then return end
+    
+    local hl = Instance.new("Highlight")
+    hl.FillColor = Color3.fromRGB(255, 215, 0)
+    hl.OutlineColor = Color3.fromRGB(255, 165, 0)
+    hl.FillTransparency = 0.6
+    hl.OutlineTransparency = 0.2
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Adornee = chest
+    hl.Parent = espFolder
+    
+    local bb = Instance.new("BillboardGui")
+    bb.Adornee = root
+    bb.Size = UDim2.new(0, 200, 0, 50)
+    bb.StudsOffset = Vector3.new(0, 3, 0)
+    bb.AlwaysOnTop = true
+    bb.MaxDistance = math.huge  -- Super jauh (infinite distance)
+    bb.Parent = espFolder
+    
+    local text = Instance.new("TextLabel")
+    text.Size = UDim2.new(1, 0, 1, 0)
+    text.BackgroundTransparency = 1
+    text.TextColor3 = Color3.fromRGB(255, 255, 100)
+    text.TextStrokeTransparency = 0.5
+    text.TextStrokeColor3 = Color3.new(0,0,0)
+    text.Font = Enum.Font.SourceSansBold
+    text.TextSize = 18
+    text.Text = "Chest"
+    text.Parent = bb
+    
+    chest:SetAttribute("ESPHighlight", hl)
+    chest:SetAttribute("ESPBillboard", bb)
+    chest:SetAttribute("ESPLabel", text)
+end
+
+local function removeChestESP(chest)
+    local hl = chest:GetAttribute("ESPHighlight")
+    if hl then hl:Destroy() end
+    local bb = chest:GetAttribute("ESPBillboard")
+    if bb then bb:Destroy() end
+    chest:SetAttribute("ESPHighlight", nil)
+    chest:SetAttribute("ESPBillboard", nil)
+    chest:SetAttribute("ESPLabel", nil)
+end
+
+local function updateChestDistance()
+    if not espEnabled then return end
+    local hrp = getHRP()
+    if not hrp then return end
+    for _, chest in pairs(workspace.Treasures:GetChildren()) do
+        local root = chest:FindFirstChildWhichIsA("BasePart") or chest.PrimaryPart
+        if not root then continue end
+        local label = chest:GetAttribute("ESPLabel")
+        if label then
+            local dist = (hrp.Position - root.Position).Magnitude
+            label.Text = string.format("Chest (%.1f studs)", dist)
+        end
+    end
+end
+
+local function toggleESP(state)
+    espEnabled = state
+    if not state then
+        espFolder:ClearAllChildren()
+        for _, chest in pairs(workspace.Treasures:GetChildren()) do
+            removeChestESP(chest)
+        end
+        return
+    end
+    for _, chest in pairs(workspace.Treasures:GetChildren()) do
+        createChestESP(chest)
+    end
+end
+
+workspace.Treasures.ChildAdded:Connect(function(child)
+    if espEnabled then
+        createChestESP(child)
+    end
+end)
+
+workspace.Treasures.ChildRemoved:Connect(function(child)
+    removeChestESP(child)
+end)
+
+spawn(function()
+    while true do
+        wait(refreshInterval)
+        scanEnemies()
+        if not farming then
+            updateList()
+        end
+        updateChestDistance()
+    end
+end)
+
+local ESPButton = Instance.new("TextButton")
+ESPButton.Size = UDim2.new(0.9, 0, 0, 35)
+ESPButton.Position = UDim2.new(0.05, 0, 0.94, 0)
+ESPButton.BackgroundColor3 = Color3.fromRGB(150, 70, 70)
+ESPButton.Text = "CHEST ESP OFF"
+ESPButton.TextColor3 = Color3.new(1, 1, 1)
+ESPButton.Font = Enum.Font.SourceSansBold
+ESPButton.TextSize = 16
+ESPButton.Parent = ContentESP
+
+ESPButton.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    toggleESP(espEnabled)
+    ESPButton.Text = "CHEST ESP " .. (espEnabled and "ON" or "OFF")
+    ESPButton.BackgroundColor3 = espEnabled and Color3.fromRGB(100, 160, 100) or Color3.fromRGB(55, 55, 65)
+end)
+
+-- Fitur Tween ke chest loop + auto press E
+local autoTweenEnabled = false
+
+local function getNearestChest()
+    local hrp = getHRP()
+    if not hrp then return nil e
