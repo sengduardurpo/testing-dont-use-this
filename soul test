@@ -588,4 +588,84 @@ local autoTweenEnabled = false
 
 local function getNearestChest()
     local hrp = getHRP()
-    if not hrp then return nil e
+    if not hrp then return nil end
+    
+    local nearest, minDist = nil, math.huge
+    for _, chest in pairs(workspace.Treasures:GetChildren()) do
+        local root = chest:FindFirstChildWhichIsA("BasePart") or chest.PrimaryPart
+        if root then
+            local dist = (hrp.Position - root.Position).Magnitude
+            if dist < minDist then
+                minDist = dist
+                nearest = chest
+            end
+        end
+    end
+    return nearest
+end
+
+local function autoPressE(chest)
+    local hrp = getHRP()
+    local root = chest:FindFirstChildWhichIsA("BasePart") or chest.PrimaryPart
+    if not hrp or not root then return end
+    
+    if (hrp.Position - root.Position).Magnitude < 5 then  -- dekat chest
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+        print("Auto press E di chest")
+    end
+end
+
+local function startAutoTweenChest()
+    autoTweenEnabled = true
+    spawn(function()
+        while autoTweenEnabled do
+            local chest = getNearestChest()
+            if chest then
+                local root = chest:FindFirstChildWhichIsA("BasePart") or chest.PrimaryPart
+                if root then
+                    tweenToPosition(root.Position + Vector3.new(0, 3, 0))  -- di atas chest
+                    task.wait(0.5)
+                    autoPressE(chest)  -- auto E saat dekat
+                end
+            end
+            task.wait(1)  -- delay antar tween
+        end
+    end)
+end
+
+local AutoTweenButton = Instance.new("TextButton")
+AutoTweenButton.Size = UDim2.new(0.9, 0, 0, 55)
+AutoTweenButton.Position = UDim2.new(0.05, 0, 0.71, 0)
+AutoTweenButton.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+AutoTweenButton.Text = "AUTO TWEEN CHEST OFF"
+AutoTweenButton.TextColor3 = Color3.new(1, 1, 1)
+AutoTweenButton.Font = Enum.Font.SourceSansBold
+AutoTweenButton.TextSize = 20
+AutoTweenButton.Parent = ContentESP
+
+AutoTweenButton.MouseButton1Click:Connect(function()
+    autoTweenEnabled = not autoTweenEnabled
+    if autoTweenEnabled then
+        startAutoTweenChest()
+        AutoTweenButton.Text = "AUTO TWEEN CHEST ON"
+        AutoTweenButton.BackgroundColor3 = Color3.fromRGB(170, 70, 70)
+    else
+        AutoTweenButton.Text = "AUTO TWEEN CHEST OFF"
+        AutoTweenButton.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+    end
+end)
+
+-- User Input for keys
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == farmToggleKey then ToggleButton.MouseButton1Click:Fire() end
+    if input.KeyCode == noclipToggleKey then NoclipButton.MouseButton1Click:Fire() end
+end)
+
+-- Inisialisasi
+scanEnemies()
+updateList()
+
+print("Soul Farm v13 LOADED – ESP super jauh + Auto Tween Chest + Auto E")
