@@ -1,5 +1,5 @@
 -- Soul Farm SUPER CHAIN v13 – ANTI-KICK SUPER + MOB SWITCH SUPER CEPAT & STABIL (NO CRASH)
--- Update: ESP super jauh, Tween ke chest loop + auto press E
+-- Update: Fokus hanya pada mob farming + anti-kick (tanpa chest)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -13,7 +13,7 @@ local player = Players.LocalPlayer
 local farmToggleKey = Enum.KeyCode.F
 local noclipToggleKey = Enum.KeyCode.N
 
-local tweenSpeed = 1000
+local tweenSpeed = 300
 local aboveDistance = 4
 local verticalOffset = Vector3.new(0, aboveDistance, 0)
 local attackRange = 15
@@ -27,7 +27,7 @@ local lastAfkAction = tick()
 
 local RemoteAttack = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("Attack")
 
--- Fungsi core (sama seperti sebelumnya)
+-- Fungsi core
 local function findEnemyFolder()
     return workspace:FindFirstChild("Enemies") 
         or workspace:FindFirstChild("Mobs") 
@@ -234,7 +234,7 @@ local function startFarm()
     end)
 end
 
--- ====================== GUI ======================
+-- ====================== GUI (hanya tab Farm) ======================
 
 task.wait(1)
 
@@ -255,62 +255,19 @@ MainFrame.Parent = ScreenGui
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 45)
 Title.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-Title.Text = "Soul Farm v13 – Super Chain"
+Title.Text = "Soul Farm v13 – Super Chain (No Chest)"
 Title.TextColor3 = Color3.fromRGB(255, 220, 100)
 Title.Font = Enum.Font.SourceSansBold
 Title.TextSize = 24
 Title.Parent = MainFrame
 
-local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(1, 0, 0, 40)
-TabBar.Position = UDim2.new(0, 0, 0, 45)
-TabBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-TabBar.Parent = MainFrame
-
-local TabFarm = Instance.new("TextButton")
-TabFarm.Size = UDim2.new(0.5, 0, 1, 0)
-TabFarm.BackgroundColor3 = Color3.fromRGB(60, 140, 80)
-TabFarm.Text = "Farm Mobs/Boss"
-TabFarm.TextColor3 = Color3.new(1,1,1)
-TabFarm.Font = Enum.Font.SourceSansBold
-TabFarm.TextSize = 18
-TabFarm.Parent = TabBar
-
-local TabESP = Instance.new("TextButton")
-TabESP.Size = UDim2.new(0.5, 0, 1, 0)
-TabESP.Position = UDim2.new(0.5, 0, 0, 0)
-TabESP.BackgroundColor3 = Color3.fromRGB(40, 100, 140)
-TabESP.Text = "Chest ESP + Tween"
-TabESP.TextColor3 = Color3.new(1,1,1)
-TabESP.Font = Enum.Font.SourceSansBold
-TabESP.TextSize = 18
-TabESP.Parent = TabBar
-
 local ContentFarm = Instance.new("Frame")
-ContentFarm.Size = UDim2.new(1, 0, 1, -85)
-ContentFarm.Position = UDim2.new(0, 0, 0, 85)
+ContentFarm.Size = UDim2.new(1, 0, 1, -45)
+ContentFarm.Position = UDim2.new(0, 0, 0, 45)
 ContentFarm.BackgroundTransparency = 1
 ContentFarm.Visible = true
 ContentFarm.Parent = MainFrame
 
-local ContentESP = Instance.new("Frame")
-ContentESP.Size = UDim2.new(1, 0, 1, -85)
-ContentESP.Position = UDim2.new(0, 0, 0, 85)
-ContentESP.BackgroundTransparency = 1
-ContentESP.Visible = false
-ContentESP.Parent = MainFrame
-
-local function switchTab(isFarm)
-    ContentFarm.Visible = isFarm
-    ContentESP.Visible = not isFarm
-    TabFarm.BackgroundColor3 = isFarm and Color3.fromRGB(80, 180, 100) or Color3.fromRGB(60, 140, 80)
-    TabESP.BackgroundColor3 = not isFarm and Color3.fromRGB(60, 140, 180) or Color3.fromRGB(40, 100, 140)
-end
-
-TabFarm.MouseButton1Click:Connect(function() switchTab(true) end)
-TabESP.MouseButton1Click:Connect(function() switchTab(false) end)
-
--- Tab Farm (sama)
 local RefreshButton = Instance.new("TextButton")
 RefreshButton.Size = UDim2.new(0.45, 0, 0, 40)
 RefreshButton.Position = UDim2.new(0.05, 0, 0.02, 0)
@@ -342,7 +299,7 @@ SearchBox.TextSize = 16
 SearchBox.Parent = ContentFarm
 
 local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Size = UDim2.new(0.9, 0, 0, 280)
+ScrollFrame.Size = UDim2.new(0.9, 0, 0, 340)
 ScrollFrame.Position = UDim2.new(0.05, 0, 0.18, 0)
 ScrollFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
 ScrollFrame.BorderSizePixel = 0
@@ -461,100 +418,7 @@ NoclipButton.MouseButton1Click:Connect(function()
     NoclipButton.BackgroundColor3 = noclipEnabled and Color3.fromRGB(170, 100, 170) or Color3.fromRGB(110, 110, 170)
 end)
 
--- ====================== TAB CHEST ESP + AUTO TWEEN + PRESS E ======================
-
-local espEnabled = false
-local autoTweenChest = false
-local espFolder = Instance.new("Folder")
-espFolder.Name = "ChestESP"
-espFolder.Parent = ScreenGui
-
-local function createChestESP(chest)
-    local root = chest:FindFirstChildWhichIsA("BasePart") or chest.PrimaryPart
-    if not root then return end
-    
-    local hl = Instance.new("Highlight")
-    hl.FillColor = Color3.fromRGB(255, 215, 0)
-    hl.OutlineColor = Color3.fromRGB(255, 165, 0)
-    hl.FillTransparency = 0.6
-    hl.OutlineTransparency = 0.2
-    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.Adornee = chest
-    hl.Parent = espFolder
-    
-    local bb = Instance.new("BillboardGui")
-    bb.Adornee = root
-    bb.Size = UDim2.new(0, 200, 0, 50)
-    bb.StudsOffset = Vector3.new(0, 3, 0)
-    bb.AlwaysOnTop = true
-    bb.MaxDistance = math.huge  -- Super jauh (infinite distance)
-    bb.Parent = espFolder
-    
-    local text = Instance.new("TextLabel")
-    text.Size = UDim2.new(1, 0, 1, 0)
-    text.BackgroundTransparency = 1
-    text.TextColor3 = Color3.fromRGB(255, 255, 100)
-    text.TextStrokeTransparency = 0.5
-    text.TextStrokeColor3 = Color3.new(0,0,0)
-    text.Font = Enum.Font.SourceSansBold
-    text.TextSize = 18
-    text.Text = "Chest"
-    text.Parent = bb
-    
-    chest:SetAttribute("ESPHighlight", hl)
-    chest:SetAttribute("ESPBillboard", bb)
-    chest:SetAttribute("ESPLabel", text)
-end
-
-local function removeChestESP(chest)
-    local hl = chest:GetAttribute("ESPHighlight")
-    if hl then hl:Destroy() end
-    local bb = chest:GetAttribute("ESPBillboard")
-    if bb then bb:Destroy() end
-    chest:SetAttribute("ESPHighlight", nil)
-    chest:SetAttribute("ESPBillboard", nil)
-    chest:SetAttribute("ESPLabel", nil)
-end
-
-local function updateChestDistance()
-    if not espEnabled then return end
-    local hrp = getHRP()
-    if not hrp then return end
-    for _, chest in pairs(workspace.Treasures:GetChildren()) do
-        local root = chest:FindFirstChildWhichIsA("BasePart") or chest.PrimaryPart
-        if not root then continue end
-        local label = chest:GetAttribute("ESPLabel")
-        if label then
-            local dist = (hrp.Position - root.Position).Magnitude
-            label.Text = string.format("Chest (%.1f studs)", dist)
-        end
-    end
-end
-
-local function toggleESP(state)
-    espEnabled = state
-    if not state then
-        espFolder:ClearAllChildren()
-        for _, chest in pairs(workspace.Treasures:GetChildren()) do
-            removeChestESP(chest)
-        end
-        return
-    end
-    for _, chest in pairs(workspace.Treasures:GetChildren()) do
-        createChestESP(chest)
-    end
-end
-
-workspace.Treasures.ChildAdded:Connect(function(child)
-    if espEnabled then
-        createChestESP(child)
-    end
-end)
-
-workspace.Treasures.ChildRemoved:Connect(function(child)
-    removeChestESP(child)
-end)
-
+-- Auto refresh list setiap beberapa detik (jika tidak farming)
 spawn(function()
     while true do
         wait(refreshInterval)
@@ -562,110 +426,21 @@ spawn(function()
         if not farming then
             updateList()
         end
-        updateChestDistance()
     end
 end)
 
-local ESPButton = Instance.new("TextButton")
-ESPButton.Size = UDim2.new(0.9, 0, 0, 35)
-ESPButton.Position = UDim2.new(0.05, 0, 0.94, 0)
-ESPButton.BackgroundColor3 = Color3.fromRGB(150, 70, 70)
-ESPButton.Text = "CHEST ESP OFF"
-ESPButton.TextColor3 = Color3.new(1, 1, 1)
-ESPButton.Font = Enum.Font.SourceSansBold
-ESPButton.TextSize = 16
-ESPButton.Parent = ContentESP
-
-ESPButton.MouseButton1Click:Connect(function()
-    espEnabled = not espEnabled
-    toggleESP(espEnabled)
-    ESPButton.Text = "CHEST ESP " .. (espEnabled and "ON" or "OFF")
-    ESPButton.BackgroundColor3 = espEnabled and Color3.fromRGB(100, 160, 100) or Color3.fromRGB(55, 55, 65)
-end)
-
--- Fitur Tween ke chest loop + auto press E
-local autoTweenEnabled = false
-
-local function getNearestChest()
-    local hrp = getHRP()
-    if not hrp then return nil end
-    
-    local nearest, minDist = nil, math.huge
-    for _, chest in pairs(workspace.Treasures:GetChildren()) do
-        local root = chest:FindFirstChildWhichIsA("BasePart") or chest.PrimaryPart
-        if root then
-            local dist = (hrp.Position - root.Position).Magnitude
-            if dist < minDist then
-                minDist = dist
-                nearest = chest
-            end
-        end
-    end
-    return nearest
-end
-
-local function autoPressE(chest)
-    local hrp = getHRP()
-    local root = chest:FindFirstChildWhichIsA("BasePart") or chest.PrimaryPart
-    if not hrp or not root then return end
-    
-    if (hrp.Position - root.Position).Magnitude < 5 then  -- dekat chest
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-        task.wait(0.1)
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-        print("Auto press E di chest")
-    end
-end
-
-local function startAutoTweenChest()
-    autoTweenEnabled = true
-    spawn(function()
-        while autoTweenEnabled do
-            local chest = getNearestChest()
-            if chest then
-                local root = chest:FindFirstChildWhichIsA("BasePart") or chest.PrimaryPart
-                if root then
-                    tweenToPosition(root.Position + Vector3.new(0, 3, 0))  -- di atas chest
-                    task.wait(0.5)
-                    autoPressE(chest)  -- auto E saat dekat
-                end
-            end
-            task.wait(1)  -- delay antar tween
-        end
-    end)
-end
-
-local AutoTweenButton = Instance.new("TextButton")
-AutoTweenButton.Size = UDim2.new(0.9, 0, 0, 55)
-AutoTweenButton.Position = UDim2.new(0.05, 0, 0.71, 0)
-AutoTweenButton.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
-AutoTweenButton.Text = "AUTO TWEEN CHEST OFF"
-AutoTweenButton.TextColor3 = Color3.new(1, 1, 1)
-AutoTweenButton.Font = Enum.Font.SourceSansBold
-AutoTweenButton.TextSize = 20
-AutoTweenButton.Parent = ContentESP
-
-AutoTweenButton.MouseButton1Click:Connect(function()
-    autoTweenEnabled = not autoTweenEnabled
-    if autoTweenEnabled then
-        startAutoTweenChest()
-        AutoTweenButton.Text = "AUTO TWEEN CHEST ON"
-        AutoTweenButton.BackgroundColor3 = Color3.fromRGB(170, 70, 70)
-    else
-        AutoTweenButton.Text = "AUTO TWEEN CHEST OFF"
-        AutoTweenButton.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+-- Optional: hotkey F & N
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == farmToggleKey then
+        farming = not farming
+        if farming then startFarm() end
+        ToggleButton.Text = "FARM " .. (farming and "ON" or "OFF") .. " (F)"
+        ToggleButton.BackgroundColor3 = farming and Color3.fromRGB(170, 70, 70) or Color3.fromRGB(70, 150, 70)
+        Status.Text = farming and "Farming aktif + Anti-Kick Super" or "Idle"
+    elseif input.KeyCode == noclipToggleKey then
+        toggleNoclip()
+        NoclipButton.Text = "NOCLIP " .. (noclipEnabled and "ON" or "OFF") .. " (N)"
+        NoclipButton.BackgroundColor3 = noclipEnabled and Color3.fromRGB(170, 100, 170) or Color3.fromRGB(110, 110, 170)
     end
 end)
-
--- User Input for keys
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == farmToggleKey then ToggleButton.MouseButton1Click:Fire() end
-    if input.KeyCode == noclipToggleKey then NoclipButton.MouseButton1Click:Fire() end
-end)
-
--- Inisialisasi
-scanEnemies()
-updateList()
-
-print("Soul Farm v13 LOADED – ESP super jauh + Auto Tween Chest + Auto E")
