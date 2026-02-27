@@ -13,8 +13,8 @@ local player = Players.LocalPlayer
 local farmToggleKey = Enum.KeyCode.F
 local noclipToggleKey = Enum.KeyCode.N
 
-local tweenSpeed = 300
-local aboveDistance = 4
+local tweenSpeed = 200
+local aboveDistance = 3
 local verticalOffset = Vector3.new(0, aboveDistance, 0)
 local attackRange = 15
 local attackDelay = 0.05
