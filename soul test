@@ -15,7 +15,7 @@ local noclipToggleKey = Enum.KeyCode.N
 
 local tweenSpeed = 200
 local aboveDistance = 3
-local verticalOffset = Vector3.new(0, aboveDistance, 0)
+local verticalOffset = Vector3.new(0, aboveDistance, 4)
 local attackRange = 15
 local attackDelay = 0.05
 local refreshInterval = 0.5
